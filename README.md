@@ -18,7 +18,7 @@ people re-gear or respec.
 
 WoW addons can't write files live: data is held in memory and flushed to
 `WTF\Account\<account>\SavedVariables\CrowLogsHelper.lua` only on **`/reload` or logout**.
-That file is what you upload to CrowLogs.
+That file is what you upload to [CrowLogs](https://github.com/ivkoneli/CrowLogs).
 
 ## Coverage window (`/clh show` or the minimap button)
 
@@ -33,7 +33,7 @@ That file is what you upload to CrowLogs.
    raiders install it too.
 2. Raid normally — logging auto-enables in the instance.
 3. After the session, **`/reload` or log out** to flush SavedVariables, then upload
-   `CrowLogsHelper.lua` to CrowLogs.
+   `CrowLogsHelper.lua` to [CrowLogs](https://github.com/ivkoneli/CrowLogs).
 
 ### Commands (`/clh`)
 | Command | Effect |
