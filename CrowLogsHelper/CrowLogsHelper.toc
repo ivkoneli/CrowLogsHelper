@@ -1,0 +1,14 @@
+## Interface: 70300
+## Title: CrowLogsHelper
+## Notes: Snapshots raid members' gear/talents/spec on boss pulls for combat-log cross-referencing.
+## Author: CrowLogsHelper
+## Version: 1.5
+## SavedVariables: CrowLogsHelperDB
+
+Capture.lua
+Storage.lua
+Comm.lua
+Inspect.lua
+Coverage.lua
+UI.lua
+Core.lua
