@@ -2,7 +2,3 @@
 WoWCombatLog*.txt
 CrowLogsHelper.lua
 report.json
-
-# Python
-__pycache__/
-*.pyc
