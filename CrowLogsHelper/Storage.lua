@@ -14,9 +14,19 @@ function Storage.Init()
     -- petGUID -> ownerGUID, so the site can fold a pet (e.g. a Water Elemental that was
     -- out before logging, hence no SPELL_SUMMON) into its owner even with two mages.
     if type(db.pets) ~= "table" then db.pets = {} end
-    -- Auto-enable WoW combat logging while in a raid instance (so you never forget).
+    -- Auto-enable WoW combat logging in CURRENT-content raids (so you never forget).
     if db.autoLog == nil then db.autoLog = true end
+    -- Also auto-log legacy (older) raids. Off by default; toggled with /clh legacy.
+    if db.logLegacy == nil then db.logLegacy = false end
     return db
+end
+
+-- Wipe all recorded data (pulls, loadouts, pet owners). Shared by /clh clear and the
+-- GUI's Clear button. Settings (autoLog/logLegacy/minimap) are kept.
+function Storage.ClearAll()
+    wipe(CrowLogsHelperDB.pulls)
+    wipe(CrowLogsHelperDB.loadouts)
+    wipe(CrowLogsHelperDB.pets)
 end
 
 -- Store a loadout in the dedup pool keyed by its hash; returns the hash.

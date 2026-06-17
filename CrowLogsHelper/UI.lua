@@ -90,6 +90,28 @@ end
 local frame
 local selectedPull
 
+-- Confirmation for the Clear button: wiping is irreversible, and you should only do it
+-- once your log is safely uploaded — so we make you confirm rather than one-click nuke.
+StaticPopupDialogs["CROWLOGSHELPER_CLEAR"] = {
+    text = "Wipe all CrowLogsHelper data?\n\nThis clears every recorded pull, loadout and pet owner. Do this only AFTER you've uploaded your log to the site.",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function() if ns.ClearData then ns.ClearData() end end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3, -- avoids taint from the default StaticPopup index
+}
+
+-- Called by Core after a wipe (slash or button) so an open window reflects it at once.
+function UI.OnDataCleared()
+    selectedPull = nil
+    if frame then
+        UI.RefreshPulls()
+        UI.RefreshRoster()
+    end
+end
+
 local function BuildFrame()
     frame = CreateFrame("Frame", "CrowLogsHelperFrame", UIParent)
     frame:SetSize(540, 430)
@@ -177,7 +199,7 @@ local function BuildFrame()
     -- ===== Pulls panel (master list + detail) =====
     local pullsPanel = CreateFrame("Frame", nil, frame)
     pullsPanel:SetPoint("TOPLEFT", 14, -72)
-    pullsPanel:SetPoint("BOTTOMRIGHT", -14, 16)
+    pullsPanel:SetPoint("BOTTOMRIGHT", -14, 44) -- leave room for the always-on Clear button row
     pullsPanel:Hide()
 
     local pullList = CreateList(pullsPanel, 20,
@@ -223,6 +245,21 @@ local function BuildFrame()
         Coverage.Refresh()
         UI.RefreshRoster()
     end)
+
+    -- ===== Clear button (both tabs, bottom-left — mirrors Refresh) =====
+    local clear = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    clear:SetSize(150, 24)
+    clear:SetPoint("BOTTOMLEFT", 16, 14)
+    clear:SetText("Clear data")
+    clear:SetScript("OnClick", function() StaticPopup_Show("CROWLOGSHELPER_CLEAR") end)
+    clear:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Clear stored data")
+        GameTooltip:AddLine("Wipes all recorded pulls, loadouts and pet owners.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Do this only AFTER uploading your log to the site.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    clear:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     -- expose pieces for the refreshers
     frame.summary, frame.rosterList, frame.pullList, frame.detailList = summary, rosterList, pullList, detailList

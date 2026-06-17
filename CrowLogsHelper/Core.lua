@@ -141,17 +141,55 @@ local function SetLogging(on)
     end
 end
 
--- Enable logging when in a raid instance, disable it again on leaving (only if we enabled
--- it). Honors the db.autoLog toggle. Called on zone/instance transitions.
+-- Current-content raids we auto-log: Highmaul + all Legion raids. Matched by
+-- instanceMapID (GetInstanceInfo's 8th return), with a name fallback in case an ID
+-- differs on this build. Legacy raids are only logged when the user opts in via
+-- /clh legacy, so the addon doesn't quietly log every old raid you wander into.
+local CURRENT_RAIDS = {
+    [1228] = true, -- Highmaul
+    [1520] = true, -- The Emerald Nightmare
+    [1648] = true, -- Trial of Valor
+    [1530] = true, -- The Nighthold
+    [1676] = true, -- Tomb of Sargeras
+    [1712] = true, -- Antorus, the Burning Throne
+}
+local CURRENT_RAID_NAMES = {
+    ["highmaul"] = true,
+    ["the emerald nightmare"] = true,
+    ["trial of valor"] = true,
+    ["the nighthold"] = true,
+    ["tomb of sargeras"] = true,
+    ["antorus, the burning throne"] = true,
+}
+
+local function IsCurrentRaid()
+    local name, instanceType, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if instanceType ~= "raid" then return false end
+    if instanceID and CURRENT_RAIDS[instanceID] then return true end
+    return (name and CURRENT_RAID_NAMES[name:lower()]) and true or false
+end
+
+-- Enable logging when in a raid we should log, disable it again on leaving (only if we
+-- enabled it). Honors db.autoLog; current-content raids always qualify, legacy raids
+-- only when db.logLegacy is on. Called on zone/instance transitions.
 local function UpdateCombatLogging()
     if not CrowLogsHelperDB or not CrowLogsHelperDB.autoLog then return end
     local _, instanceType = IsInInstance()
-    if instanceType == "raid" then
+    if instanceType == "raid" and (IsCurrentRaid() or CrowLogsHelperDB.logLegacy) then
         SetLogging(true)
     elseif loggingByAddon then
         SetLogging(false)
     end
 end
+
+-- Wipe all recorded data. Shared by /clh clear and the GUI Clear button; refreshes the
+-- window if it's open so the cleared state shows immediately.
+local function ClearData()
+    Storage.ClearAll()
+    Print("cleared stored pulls, loadouts and pet owners.")
+    if ns.UI and ns.UI.OnDataCleared then ns.UI.OnDataCleared() end
+end
+ns.ClearData = ClearData
 
 -- ---------- self-loadout change broadcasting (debounced) ----------
 
@@ -278,15 +316,19 @@ SlashCmdList.CROWLOGSHELPER = function(msg)
         local db = CrowLogsHelperDB
         local loadouts = 0
         for _ in pairs(db.loadouts) do loadouts = loadouts + 1 end
-        Print(string.format("spec=%s ilvl=%d | stored: %d loadouts, %d pulls | leader=%s | logging=%s autolog=%s",
+        Print(string.format("spec=%s ilvl=%d | stored: %d loadouts, %d pulls | leader=%s | logging=%s autolog=%s legacy=%s",
             self.specName or "?", self.ilvl, loadouts, #db.pulls, tostring(IsLeader()),
-            tostring(LoggingCombat()), tostring(db.autoLog)))
+            tostring(LoggingCombat()), tostring(db.autoLog), tostring(db.logLegacy)))
     elseif msg == "log" then
         -- Manual toggle (macro-friendly), e.g. for dungeons where autolog stays off.
         SetLogging(not LoggingCombat())
     elseif msg == "autolog" then
         CrowLogsHelperDB.autoLog = not CrowLogsHelperDB.autoLog
         Print("auto combat-logging in raids: " .. (CrowLogsHelperDB.autoLog and "|cff4cd07dON|r" or "|cffe2566bOFF|r"))
+        UpdateCombatLogging()
+    elseif msg == "legacy" then
+        CrowLogsHelperDB.logLegacy = not CrowLogsHelperDB.logLegacy
+        Print("auto-logging legacy (older) raids: " .. (CrowLogsHelperDB.logLegacy and "|cff4cd07dON|r" or "|cffe2566bOFF|r"))
         UpdateCombatLogging()
     elseif msg == "show" or msg == "gui" then
         if UI then UI.Toggle() end
@@ -299,11 +341,8 @@ SlashCmdList.CROWLOGSHELPER = function(msg)
         EndPull(false)
         Print("pull closed.")
     elseif msg == "clear" then
-        wipe(CrowLogsHelperDB.pulls)
-        wipe(CrowLogsHelperDB.loadouts)
-        wipe(CrowLogsHelperDB.pets)
-        Print("cleared stored pulls and loadouts.")
+        ClearData()
     else
-        Print("commands: |cffffff00show|r (coverage window), |cffffff00status|r, |cffffff00log|r (toggle combat log now), |cffffff00autolog|r (auto in raids), |cffffff00pull|r, |cffffff00end|r, |cffffff00clear|r")
+        Print("commands: |cffffff00show|r (coverage window), |cffffff00status|r, |cffffff00log|r (toggle combat log now), |cffffff00autolog|r (auto in current raids), |cffffff00legacy|r (also log old raids), |cffffff00pull|r, |cffffff00end|r, |cffffff00clear|r")
     end
 end
