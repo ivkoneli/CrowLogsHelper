@@ -11,6 +11,9 @@ function Storage.Init()
     db.version = 1
     if type(db.loadouts) ~= "table" then db.loadouts = {} end
     if type(db.pulls) ~= "table" then db.pulls = {} end
+    -- petGUID -> ownerGUID, so the site can fold a pet (e.g. a Water Elemental that was
+    -- out before logging, hence no SPELL_SUMMON) into its owner even with two mages.
+    if type(db.pets) ~= "table" then db.pets = {} end
     -- Auto-enable WoW combat logging while in a raid instance (so you never forget).
     if db.autoLog == nil then db.autoLog = true end
     return db
@@ -45,6 +48,13 @@ function Storage.OpenPull(info)
     table.insert(CrowLogsHelperDB.pulls, pull)
     current = pull
     return pull
+end
+
+-- Remember a pet's owner (petGUID -> ownerGUID). GUIDs match the combat log exactly,
+-- so the site can credit the pet's damage/healing to the player who owns it.
+function Storage.RecordPet(petGUID, ownerGUID)
+    if not petGUID or not ownerGUID then return end
+    CrowLogsHelperDB.pets[petGUID] = ownerGUID
 end
 
 -- Attach a loadout (self/comm/inspect) to the current pull, if one is open.

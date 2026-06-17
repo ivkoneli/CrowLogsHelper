@@ -56,6 +56,24 @@ local function ForEachGroupMember(fn)
     end
 end
 
+-- Record each present member's pet GUID -> owner GUID (self + the whole group), so the
+-- site can fold a permanent pet (Water Elemental, ghoul, …) into its owner even when the
+-- combat log has no SPELL_SUMMON for it. UnitGUID works for group pets regardless of
+-- range, and the pet unit token differs by build, so we try both documented forms.
+local function RecordGroupPets()
+    Storage.RecordPet(UnitGUID("pet"), UnitGUID("player")) -- self
+    if not IsInGroup() then return end
+    local prefix = IsInRaid() and "raid" or "party"
+    local count = IsInRaid() and GetNumGroupMembers() or (GetNumGroupMembers() - 1)
+    for i = 1, count do
+        local unit = prefix .. i
+        if UnitExists(unit) then
+            local petGUID = UnitGUID(prefix .. "pet" .. i) or UnitGUID(unit .. "pet")
+            Storage.RecordPet(petGUID, UnitGUID(unit))
+        end
+    end
+end
+
 -- Attach the best loadout we already have for each present member, so even a pull that
 -- ends before inspects land (an 11s boss kill) still records everyone we've seen before.
 -- A fresher comm reply or the +5s inspect can still overwrite this within the same pull.
@@ -82,6 +100,7 @@ local function StartPull(info)
     -- Snapshot ourselves immediately, then attach everyone we already have data for.
     Storage.AddParticipant(Capture.BuildSelf())
     AttachKnown()
+    RecordGroupPets()
 
     -- Ask everyone running the addon to report their loadout.
     Comm.SendRequest()
@@ -234,6 +253,7 @@ function events.GROUP_ROSTER_UPDATE()
     if CanCollect() then Comm.SendRequest() end
     -- A new member joined / roster changed: warm any loadouts we don't have yet.
     PreInspect()
+    RecordGroupPets()
 end
 
 events.PLAYER_EQUIPMENT_CHANGED = ScheduleBroadcast
@@ -281,6 +301,7 @@ SlashCmdList.CROWLOGSHELPER = function(msg)
     elseif msg == "clear" then
         wipe(CrowLogsHelperDB.pulls)
         wipe(CrowLogsHelperDB.loadouts)
+        wipe(CrowLogsHelperDB.pets)
         Print("cleared stored pulls and loadouts.")
     else
         Print("commands: |cffffff00show|r (coverage window), |cffffff00status|r, |cffffff00log|r (toggle combat log now), |cffffff00autolog|r (auto in raids), |cffffff00pull|r, |cffffff00end|r, |cffffff00clear|r")
