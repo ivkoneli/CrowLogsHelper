@@ -14,6 +14,10 @@ function Storage.Init()
     -- petGUID -> ownerGUID, so the site can fold a pet (e.g. a Water Elemental that was
     -- out before logging, hence no SPELL_SUMMON) into its owner even with two mages.
     if type(db.pets) ~= "table" then db.pets = {} end
+    -- guid -> name of everyone confirmed running the addon (replied over comms at least
+    -- once). Lets the site count addon users even when a player's build was frozen from an
+    -- inspect (they never changed gear, so they only ever got inspected, not broadcast).
+    if type(db.addonUsers) ~= "table" then db.addonUsers = {} end
     -- Auto-enable WoW combat logging in CURRENT-content raids (so you never forget).
     if db.autoLog == nil then db.autoLog = true end
     -- Also auto-log legacy (older) raids. Off by default; toggled with /clh legacy.
@@ -27,6 +31,14 @@ function Storage.ClearAll()
     wipe(CrowLogsHelperDB.pulls)
     wipe(CrowLogsHelperDB.loadouts)
     wipe(CrowLogsHelperDB.pets)
+    wipe(CrowLogsHelperDB.addonUsers)
+end
+
+-- Mark a guid as a confirmed addon user (received a comm reply from them). Persisted so
+-- the site can report how many raiders ran the addon, regardless of comm vs inspect.
+function Storage.RecordAddonUser(guid, name)
+    if not guid then return end
+    CrowLogsHelperDB.addonUsers[guid] = name or true
 end
 
 -- Store a loadout in the dedup pool keyed by its hash; returns the hash.

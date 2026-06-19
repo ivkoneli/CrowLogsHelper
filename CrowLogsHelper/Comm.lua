@@ -165,6 +165,7 @@ function Comm.OnMessage(prefix, text, channel, sender)
     if loadout then
         Comm.addonUsers[loadout.guid] = time() -- confirmed addon user
         Comm.addonVersions[loadout.guid] = version -- nil for pre-version addons → flagged "Old"
+        ns.Storage.RecordAddonUser(loadout.guid, loadout.name) -- persist for the site's count
         ns.Storage.AddParticipant(loadout)
     end
 end
