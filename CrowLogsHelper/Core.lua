@@ -169,6 +169,14 @@ local function IsCurrentRaid()
     return (name and CURRENT_RAID_NAMES[name:lower()]) and true or false
 end
 
+-- Whether to AUTO-record pulls here: a current-content raid, or any raid when legacy
+-- logging is opted in (/clh legacy). Off elsewhere — legacy raids store nothing unless
+-- you turn it on, matching the combat-log behavior. Manual /clh pull bypasses this.
+local function ShouldAutoRecord()
+    if not CrowLogsHelperDB then return false end
+    return IsCurrentRaid() or CrowLogsHelperDB.logLegacy
+end
+
 -- Enable logging when in a raid we should log, disable it again on leaving (only if we
 -- enabled it). Honors db.autoLog; current-content raids always qualify, legacy raids
 -- only when db.logLegacy is on. Called on zone/instance transitions.
@@ -254,7 +262,7 @@ function events.ENCOUNTER_START(encounterID, encounterName, difficultyID, groupS
         if info.guid and not (pull.target and pull.target.guid) then
             pull.target = info
         end
-    else
+    elseif ShouldAutoRecord() then
         StartPull(info)
     end
 end
@@ -265,7 +273,7 @@ end
 
 function events.PLAYER_REGEN_DISABLED()
     -- Fallback for servers that don't fire ENCOUNTER_START.
-    if not Storage.HasOpenPull() and LooksLikeBoss() then
+    if not Storage.HasOpenPull() and LooksLikeBoss() and ShouldAutoRecord() then
         local info = TargetInfo()
         info.encounterName = info.name or "Unknown"
         StartPull(info)
