@@ -4,7 +4,9 @@ local Capture, Storage, Comm, Inspect = ns.Capture, ns.Storage, ns.Comm, ns.Insp
 local Coverage, UI = ns.Coverage, ns.UI
 
 local function Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffCrowLogsHelper|r: " .. msg)
+    -- Show the loaded version in the blue prefix so you can confirm at a glance which
+    -- build is actually running (file edits only take effect after /reload).
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffCrowLogsHelper v" .. (Comm.VERSION or "?") .. "|r: " .. msg)
 end
 
 local function IsLeader()
