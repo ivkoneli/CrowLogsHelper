@@ -34,6 +34,20 @@ function Storage.ClearAll()
     wipe(CrowLogsHelperDB.addonUsers)
 end
 
+-- Newest timestamp across recorded data — the latest of any pull start or loadout capture,
+-- or nil when the DB holds nothing. Lets us tell stale data from a past raid (a day+ old)
+-- apart from tonight's, so the login reminder only nags when it's actually worth clearing.
+function Storage.LastActivityEpoch()
+    local newest
+    for _, p in ipairs(CrowLogsHelperDB.pulls) do
+        if p.startEpoch and (not newest or p.startEpoch > newest) then newest = p.startEpoch end
+    end
+    for _, lo in pairs(CrowLogsHelperDB.loadouts) do
+        if lo.capturedAt and (not newest or lo.capturedAt > newest) then newest = lo.capturedAt end
+    end
+    return newest
+end
+
 -- Mark a guid as a confirmed addon user (received a comm reply from them). Persisted so
 -- the site can report how many raiders ran the addon, regardless of comm vs inspect.
 function Storage.RecordAddonUser(guid, name)

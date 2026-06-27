@@ -201,6 +201,41 @@ local function ClearData()
 end
 ns.ClearData = ClearData
 
+-- ---------- stale-data raid-entry reminder ----------
+-- Nudge to clear data left over from a PAST raid so a new night's upload isn't mixed with
+-- last week's pulls. Fires only when ENTERING a current-content raid (Highmaul + Legion) —
+-- not on login elsewhere, not in legacy raids — and same-day data is left alone (it's almost
+-- certainly tonight's raid).
+local OLD_LOGS_AGE = 24 * 3600      -- treat data as stale once the newest entry is a day+ old
+local OLD_LOGS_SNOOZE = 18 * 3600   -- "Ignore" quiets it this long (covers reloads, not next night)
+local inCurrentRaid = false         -- edge-detect entering a current raid (vs. every zone event)
+
+-- Pressing "Ignore" snoozes the reminder so a /reload an hour later doesn't nag again.
+local function SnoozeOldLogsReminder()
+    if CrowLogsHelperDB then CrowLogsHelperDB.reminderSnoozeUntil = time() + OLD_LOGS_SNOOZE end
+end
+ns.SnoozeOldLogsReminder = SnoozeOldLogsReminder
+
+-- Human age for the reminder text: "2 days" once a day old, otherwise "30 hours".
+local function HumanAge(sec)
+    local days = math.floor(sec / 86400)
+    if days >= 1 then return days .. (days == 1 and " day" or " days") end
+    return math.max(1, math.floor(sec / 3600)) .. " hours"
+end
+
+-- Show the reminder if stale data is still stored and we're not snoozed. Re-checks the raid
+-- (called on a short delay after entry, so bail if they already left).
+local function CheckOldLogs()
+    local db = CrowLogsHelperDB
+    if not db then return end
+    if not IsCurrentRaid() then return end -- only nag inside a current-content raid
+    local newest = Storage.LastActivityEpoch()
+    if not newest then return end -- nothing stored
+    if (time() - newest) < OLD_LOGS_AGE then return end -- same-day data — leave tonight's raid be
+    if db.reminderSnoozeUntil and time() < db.reminderSnoozeUntil then return end
+    StaticPopup_Show("CROWLOGSHELPER_OLD_LOGS", HumanAge(time() - newest))
+end
+
 -- ---------- self-loadout change broadcasting (debounced) ----------
 
 local lastHash
@@ -243,6 +278,14 @@ function events.PLAYER_ENTERING_WORLD()
     -- Fires on login, /reload, and every zone/instance transition — the right hook to
     -- flip combat logging on entering a raid and off again on leaving.
     UpdateCombatLogging()
+    -- Stale-data reminder, but only on the transition INTO a current-content raid (not on
+    -- every zone event, and not while already standing inside it). Short delay so instance
+    -- info is settled; CheckOldLogs re-checks the raid in case they zoned straight back out.
+    local nowInRaid = IsCurrentRaid()
+    if nowInRaid and not inCurrentRaid then
+        C_Timer.After(3, CheckOldLogs)
+    end
+    inCurrentRaid = nowInRaid
 end
 
 function events.ENCOUNTER_START(encounterID, encounterName, difficultyID, groupSize)

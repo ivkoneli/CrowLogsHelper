@@ -103,6 +103,23 @@ StaticPopupDialogs["CROWLOGSHELPER_CLEAR"] = {
     preferredIndex = 3, -- avoids taint from the default StaticPopup index
 }
 
+-- Login reminder: stale data from a previous raid is still sitting in the DB. Per design,
+-- "Clear logs" wipes immediately (the reminder itself is the confirmation); "Ignore" snoozes
+-- it (Core), so a mid-session /reload doesn't re-nag but a fresh raid night still does. The
+-- age string ("6 days") is passed in via StaticPopup_Show's first arg.
+StaticPopupDialogs["CROWLOGSHELPER_OLD_LOGS"] = {
+    text = "CrowLogsHelper: you still have raid data from %s ago that hasn't been cleared.\n\nIf you've already uploaded it to the site, clear it so tonight's log starts fresh and isn't mixed with old pulls.",
+    button1 = "Clear logs",
+    button2 = "Ignore",
+    OnAccept = function() if ns.ClearData then ns.ClearData() end end,
+    OnCancel = function() if ns.SnoozeOldLogsReminder then ns.SnoozeOldLogsReminder() end end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    showAlert = true,
+    preferredIndex = 3, -- avoids taint from the default StaticPopup index
+}
+
 -- Called by Core after a wipe (slash or button) so an open window reflects it at once.
 function UI.OnDataCleared()
     selectedPull = nil
