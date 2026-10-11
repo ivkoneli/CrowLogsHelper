@@ -13,7 +13,8 @@ end
 -- Snapshot status for one guid from what we currently have stored.
 -- { hasAddon, quality = "full"|"partial"|"none", source, age, ilvl, specName }
 function Coverage.StatusForGUID(guid)
-    local lo = ns.Storage.LoadoutForGUID(guid)
+    -- Same age limit as the pull attach, so a build from a past raid shows as missing.
+    local lo = ns.Storage.LoadoutForGUID(guid, ns.Storage.CURRENT_MAX_AGE)
     local hasAddon = ns.Comm.HasAddon(guid)
     if lo and (lo.source == "self" or lo.source == "comm") then hasAddon = true end
     local quality = "none"

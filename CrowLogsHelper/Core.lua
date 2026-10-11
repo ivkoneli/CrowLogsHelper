@@ -79,9 +79,12 @@ end
 -- Attach the best loadout we already have for each present member, so even a pull that
 -- ends before inspects land (an 11s boss kill) still records everyone we've seen before.
 -- A fresher comm reply or the +5s inspect can still overwrite this within the same pull.
+-- Only snapshots from tonight count: an older one (a past raid night) may be a different
+-- spec/build entirely, and attaching it would mark the player "seen" so the +5s inspect
+-- skips them. Better to leave them missing until a comm reply or inspect lands.
 local function AttachKnown()
     ForEachGroupMember(function(_, guid)
-        local lo = Storage.LoadoutForGUID(guid)
+        local lo = Storage.LoadoutForGUID(guid, Storage.CURRENT_MAX_AGE)
         if lo then Storage.AddParticipant(lo) end
     end)
 end

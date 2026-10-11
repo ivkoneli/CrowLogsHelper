@@ -118,13 +118,20 @@ function Storage.HasOpenPull()
     return current ~= nil
 end
 
+-- How old a snapshot may be and still count as "tonight's" build (pull attach + coverage).
+Storage.CURRENT_MAX_AGE = 12 * 60 * 60
+
 -- Best stored loadout for a guid — the floor we attach at pull start so a short fight still
 -- records people we've already seen (self/comm/inspect). Prefers a COMPLETE snapshot over a
 -- partial one (a half-loaded inspect), then the most recent. nil if unseen.
-function Storage.LoadoutForGUID(guid)
+-- `maxAgeSec` (optional) ignores snapshots captured longer ago than that: a build from a
+-- past raid night is not what the player is running now (specs, talents and gear change),
+-- and attaching it would also stop the in-pull inspect from capturing the real one.
+function Storage.LoadoutForGUID(guid, maxAgeSec)
     local best, bestComplete
+    local now = time()
     for _, lo in pairs(CrowLogsHelperDB.loadouts) do
-        if lo.guid == guid then
+        if lo.guid == guid and (not maxAgeSec or (now - (lo.capturedAt or 0)) <= maxAgeSec) then
             local complete = ns.Capture.IsComplete(lo)
             if not best
                 or (complete and not bestComplete)
