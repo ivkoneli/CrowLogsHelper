@@ -117,7 +117,7 @@ function Coverage.PullSummary(pull)
     return res
 end
 
--- Print a one-line post-pull coverage report (leader-only caller).
+-- Print a one-line post-pull coverage report (collector caller).
 function Coverage.PrintPullSummary(pull)
     if not pull or not pull.participants then return end
     local r = Coverage.PullSummary(pull)
@@ -129,11 +129,11 @@ function Coverage.PrintPullSummary(pull)
     Print(table.concat(parts, " — "))
 end
 
--- The "fix the gaps" action: re-ask addon users for their loadout, and (leader only) queue
+-- The "fix the gaps" action: re-ask addon users for their loadout, and queue
 -- inspects for anyone we don't already have a COMPLETE snapshot for. Silent — no nagging.
 function Coverage.Refresh()
     ns.Comm.SendRequest()
-    if IsInGroup() and (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")) then
+    if IsInGroup() then
         local seen = { [UnitGUID("player")] = true }
         for _, s in ipairs(Coverage.Roster()) do
             if s.quality == "full" then seen[s.guid] = true end

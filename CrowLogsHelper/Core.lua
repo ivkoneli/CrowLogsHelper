@@ -13,12 +13,12 @@ local function IsLeader()
     return IsInGroup() and UnitIsGroupLeader("player")
 end
 
--- Who's allowed to run the proactive inspects / coverage chatter: the leader OR a raid
--- assistant. Each collector builds their own independent DB, and the site imports only one
--- .lua per log, so there's no cross-file merge to go inconsistent — broadening to assists
--- just lets an assistant's file also capture non-addon raiders (via their own inspects).
+-- Who's allowed to run the proactive inspects / coverage chatter: anyone in a group. Each
+-- collector builds their own independent DB, and the site imports only one .lua per log,
+-- so there's no cross-file merge to go inconsistent — any raider's file can capture
+-- non-addon raiders (via their own inspects), not just the leader's or an assistant's.
 local function CanCollect()
-    return IsInGroup() and (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player"))
+    return IsInGroup()
 end
 
 -- Best-effort "what we attacked" at pull start.
@@ -90,8 +90,8 @@ local function AttachKnown()
 end
 
 -- Out-of-combat warming: keep the loadout pool fresh so AttachKnown has current data the
--- instant a pull starts (and short pulls no longer miss non-addon players). Leader-only,
--- like the in-pull inspect, so we don't have every raider hammering NotifyInspect.
+-- instant a pull starts (and short pulls no longer miss non-addon players). Any raider
+-- in a group, like the in-pull inspect (inspects are queued and spaced, see Inspect.lua).
 local PREINSPECT_FRESH = 90 -- re-inspect a member only if their loadout is older than this
 local function PreInspect()
     if InCombatLockdown() or not CanCollect() then return end
@@ -272,7 +272,7 @@ function events.PLAYER_LOGIN()
     lastHash = Capture.BuildSelf().hash
     Print("loaded. Boss pulls will be recorded. Type /clh for options, /clh show for the window.")
     if UI then UI.Init() end
-    -- Periodically warm the loadout pool (leader-only, out of combat) so a pull starting
+    -- Periodically warm the loadout pool (out of combat) so a pull starting
     -- moments later already has everyone's current build via AttachKnown.
     C_Timer.NewTicker(30, PreInspect)
 end
@@ -343,8 +343,17 @@ function events.INSPECT_READY(guid)
     Inspect.OnReady(guid)
 end
 
+-- Roster updates come in bursts (a raid forming, people swapping groups), and now every
+-- raider with the addon asks, so coalesce them: one request 3s after the roster settles.
+local rosterReqPending = false
 function events.GROUP_ROSTER_UPDATE()
-    if CanCollect() then Comm.SendRequest() end
+    if CanCollect() and not rosterReqPending then
+        rosterReqPending = true
+        C_Timer.After(3, function()
+            rosterReqPending = false
+            if CanCollect() then Comm.SendRequest() end
+        end)
+    end
     -- A new member joined / roster changed: warm any loadouts we don't have yet.
     PreInspect()
     RecordGroupPets()
