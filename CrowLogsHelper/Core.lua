@@ -299,6 +299,12 @@ function events.ENCOUNTER_START(encounterID, encounterName, difficultyID, groupS
     info.groupSize = groupSize
 
     local pull = Storage.CurrentPull()
+    if pull and pull.encounterID then
+        -- Still open from an earlier boss whose ENCOUNTER_END never came (we zoned out or
+        -- disconnected mid-fight): close that one as a wipe and record this pull fresh.
+        EndPull(false)
+        pull = nil
+    end
     if pull then
         -- A pull was already opened by the combat fallback (ENCOUNTER_START can
         -- fire just after PLAYER_REGEN_DISABLED). Upgrade it with the real
@@ -329,8 +335,13 @@ function events.PLAYER_REGEN_DISABLED()
 end
 
 function events.PLAYER_REGEN_ENABLED()
-    -- Safety net: close any pull still open when combat ends.
-    if Storage.HasOpenPull() then EndPull(false) end
+    -- Safety net: close any pull still open when combat ends. Not during a boss encounter,
+    -- though: dying drops you out of combat too, and that closed a KILL as a 2-minute wipe
+    -- (Mythic Ursoc, 2026-10-18). ENCOUNTER_END closes those, with the real result.
+    local pull = Storage.CurrentPull()
+    local encounterRunning = pull and pull.encounterID
+        and (UnitIsDeadOrGhost("player") or (IsEncounterInProgress and IsEncounterInProgress()))
+    if pull and not encounterRunning then EndPull(false) end
     -- Combat ended: re-warm loadouts so the next pull (e.g. the next boss) starts informed.
     PreInspect()
 end
