@@ -63,6 +63,16 @@ function Storage.UpsertLoadout(loadout)
     -- Prefer richer sources (self/comm over a sparse inspect) when replacing.
     if not existing or (existing.source == "inspect" and loadout.source ~= "inspect") then
         pool[loadout.hash] = loadout
+    else
+        -- Same build seen again: it's still current, so refresh when it was captured (and
+        -- the ilvl, which the hash doesn't cover). Keeping the FIRST capture time made an
+        -- unchanged build look a day old, and the site drops snapshots over 12h old.
+        if (loadout.capturedAt or 0) > (existing.capturedAt or 0) then
+            existing.capturedAt = loadout.capturedAt
+        end
+        if (loadout.ilvl or 0) > 0 and loadout.source ~= "inspect" then
+            existing.ilvl = loadout.ilvl
+        end
     end
     return loadout.hash
 end
@@ -98,6 +108,12 @@ function Storage.AddParticipant(loadout)
     if not loadout or not loadout.guid then return end
     local hash = Storage.UpsertLoadout(loadout)
     if current then
+        -- Never let an inspect (no ilvl, sometimes half-read gear) replace the player's own
+        -- broadcast on this pull: a pre-pull inspect landing mid-fight used to overwrite
+        -- an addon user's comm snapshot, so the site lost their ilvl for that pull.
+        local prev = current.participants[loadout.guid]
+        local prevLo = prev and CrowLogsHelperDB.loadouts[prev]
+        if loadout.source == "inspect" and prevLo and prevLo.source ~= "inspect" then return end
         current.participants[loadout.guid] = hash
     end
 end
